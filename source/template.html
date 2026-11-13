@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: AGPL-3.0-only -->
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="完全在浏览器本地完成音量增强和音量均衡。音频无需上传，支持试听及 MP3、WAV 导出，可离线使用。">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'wasm-unsafe-eval' blob:; style-src 'unsafe-inline'; img-src data:; media-src blob:; worker-src blob:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='4' fill='%230066cc'/%3E%3Cpath d='M9 16v8m7-14v20m8-17v14m7-9v4' stroke='white' stroke-width='3'/%3E%3C/svg%3E">
+  <title>在线音频音量增强器 · 本地处理</title>
+  <style>/*__CSS__*/</style>
+  <script>/*__THEME__*/</script>
+</head>
+<body>
+  <header class="header">
+    <h1><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9v6m5-12v18m5-15v12m5-9v6m4-5v4"/></svg>在线音频音量增强器</h1>
+    <div class="header-info"><span>处理位置: <strong class="green">浏览器本地</strong></span><span>文件传输: <strong class="cyan">0 B</strong></span><span class="privacy-state"><span class="status-dot"></span>隐私保护已启用</span></div>
+  </header>
+
+  <nav class="controls" aria-label="音频操作">
+    <select id="theme-mode" aria-label="主题模式"><option value="auto">◐ 主题：跟随浏览器</option><option value="light">☀ 主题：浅色模式</option><option value="dark">☾ 主题：深色模式</option></select>
+    <select id="language-mode" aria-label="界面语言"><option value="zh-CN">简体中文</option><option value="en">English</option></select>
+    <span class="toolbar-divider" aria-hidden="true"></span>
+    <button id="choose-file" type="button" class="primary">＋ 选择音频</button>
+    <button id="load-demo" type="button">载入示例</button>
+    <button id="clear-file" type="button" disabled>清空音频</button>
+    <span class="toolbar-hint">支持拖放文件 · 单文件上限 100 MB</span>
+    <span class="system-status" id="system-status" role="status" aria-live="polite"><span class="status-dot"></span><span id="status-text">系统就绪</span></span>
+  </nav>
+  <input id="file-input" type="file" accept="audio/*,.mp3,.wav,.wma,.ogg,.m4r,.m4a,.aac,.flac,.aif,.aiff,.aifc,.opus,.weba,.webm,.ape,.ac3,.amr" hidden>
+
+  <main>
+    <section class="panel overview" aria-labelledby="overview-title">
+      <div class="summary-bar highlight-bar">
+        <h2 id="overview-title">音频概览</h2>
+        <span class="summary-file">文件: <strong id="file-name">未选择</strong></span>
+        <span>时长: <strong id="file-duration">--:--</strong></span>
+        <span>采样率: <strong id="file-rate" class="blue">-- Hz</strong></span>
+        <span>声道: <strong id="file-channels">--</strong></span>
+        <span class="summary-end" id="file-state">等待载入音频</span>
+      </div>
+      <div class="overview-grid">
+        <section class="chart-card waveform-card" aria-labelledby="waveform-title">
+          <div class="card-title"><h3 id="waveform-title">音频波形</h3><div class="legend"><span><i class="blue-bg"></i>原始</span><span><i class="cyan-bg"></i>处理后</span></div></div>
+          <div class="waveform-wrap" id="waveform-wrap">
+            <svg id="waveform" viewBox="0 0 1000 200" preserveAspectRatio="none" role="img" aria-label="音频波形，载入音频后显示">
+              <g class="chart-grid"><path d="M0 20H1000M0 60H1000M0 100H1000M0 140H1000M0 180H1000"/><path d="M200 0V200M400 0V200M600 0V200M800 0V200"/></g>
+              <path id="original-wave" class="original-wave" d=""/>
+              <path id="processed-wave" class="processed-wave" d=""/>
+              <line id="playhead" x1="0" y1="0" x2="0" y2="200" class="playhead" hidden/>
+            </svg>
+            <span class="waveform-empty" id="waveform-empty">选择音频后显示波形</span>
+          </div>
+          <div class="axis-labels"><span id="axis-start">00:00</span><span id="axis-mid">--:--</span><span id="axis-end">--:--</span></div>
+          <div class="chart-caption" id="waveform-caption">可点击波形定位试听位置</div>
+        </section>
+        <section class="chart-card file-card" aria-labelledby="input-title">
+          <div class="card-title"><h3 id="input-title">本地音频输入</h3><span class="micro-label green">NO UPLOAD</span></div>
+          <button type="button" id="drop-zone" class="drop-zone" aria-label="选择或拖入音频文件">
+            <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M12 7h16l9 9v25H12zM28 7v10h9M18 27v6m6-11v15m6-12v10"/></svg>
+            <strong id="drop-title">拖放音频文件到这里</strong>
+            <span id="drop-subtitle">或点击选择本地文件</span>
+            <small id="file-size">单文件 ≤ 100 MB</small>
+          </button>
+          <p class="small muted format-note">MP3 / WAV / WMA / OGG / M4R<br> M4A / AAC / FLAC / AIF / AIFF 等</p>
+        </section>
+        <section class="chart-card level-card" aria-labelledby="level-title">
+          <div class="card-title"><h3 id="level-title">音量分析</h3><span class="micro-label muted">dBFS</span></div>
+          <table class="level-table"><thead><tr><th>指标</th><th class="blue">原始</th><th class="cyan">处理后</th></tr></thead><tbody><tr><td>峰值</td><td id="input-peak">--</td><td id="output-peak">--</td></tr><tr><td>平均响度 <span class="muted">RMS</span></td><td id="input-rms">--</td><td id="output-rms">--</td></tr></tbody></table>
+          <div class="meter-label"><span>原始峰值</span><span id="input-peak-label">-- dBFS</span></div><div class="level-track"><span id="input-meter" class="blue-bg"></span><i></i></div>
+          <div class="meter-label"><span>处理后峰值</span><span id="output-peak-label">-- dBFS</span></div><div class="level-track"><span id="output-meter" class="cyan-bg"></span><i></i></div>
+          <p class="small muted level-note" id="level-note">载入后自动分析，调整后自动更新。</p>
+        </section>
+      </div>
+    </section>
+
+    <div class="panels-row settings-row">
+      <section class="panel" aria-labelledby="gain-title">
+        <div class="summary-bar"><h2 id="gain-title" class="blue">音量调节</h2><span class="small muted">降低或增强整段音频的音量</span><label class="switch-label push-right"><input id="boost-enabled" type="checkbox" checked>启用调节</label></div>
+        <div class="panel-content settings-content">
+          <div class="setting-label"><label for="gain-range">输出音量</label><strong class="gain-value blue"><span id="gain-display">150%</span> <small id="gain-db">+3.52 dB</small></strong></div>
+          <div class="range-row"><input id="gain-range" type="range" min="50" max="400" step="5" value="150" aria-label="输出音量百分比"><label class="number-field"><input id="gain-number" type="number" min="50" max="400" step="5" value="150" aria-label="输入输出音量百分比"><span>%</span></label></div>
+          <div class="range-labels"><span>50% 最小音量</span><span>100% 原音量 · 400% 最大增强</span></div>
+          <div class="presets" role="group" aria-label="音量调节预设"><button type="button" data-gain="50" aria-pressed="false">减半 <strong>50%</strong></button><button type="button" data-gain="100" aria-pressed="false">原音 <strong>100%</strong></button><button type="button" data-gain="150" class="selected" aria-pressed="true">适中 <strong>150%</strong></button><button type="button" data-gain="200" aria-pressed="false">强力 <strong>200%</strong></button><button type="button" data-gain="300" aria-pressed="false">极强 <strong>300%</strong></button></div>
+          <p class="small muted setting-note">100% 保持原音量，低于 100% 降低音量，高于 100% 增强音量。可与音量均衡同时使用。</p>
+        </div>
+      </section>
+      <section class="panel" aria-labelledby="balance-title">
+        <div class="summary-bar"><h2 id="balance-title" class="yellow">音量均衡</h2><span class="small muted">让轻声和大声更一致</span><label class="switch-label push-right"><input id="balance-enabled" type="checkbox">启用均衡</label></div>
+        <div class="panel-content settings-content">
+          <div class="setting-label"><label for="balance-strength">均衡强度</label><span id="balance-state" class="small muted">未启用</span></div>
+          <select id="balance-strength" disabled><option value="gentle">轻柔 · 保留更多动态</option><option value="standard" selected>标准 · 均衡音量与动态</option><option value="strong">明显 · 更一致的听感</option></select>
+          <div class="voice-row"><label class="switch-label"><input id="voice-enabled" type="checkbox">突出人声</label><span class="small muted">减轻低频轰鸣，提升语音清晰度</span></div>
+          <div class="balance-description"><span class="balance-symbol" aria-hidden="true">▂ ▆ ▃ ▇ <span>→</span> ▅ ▆ ▅ ▆</span><p>自动提升较轻片段、降低过响片段，适合人声录音、课程和音量起伏较大的音频。</p></div>
+          <div class="safety-row"><label class="switch-label"><input id="limiter-enabled" type="checkbox" checked>防止削波失真</label><span id="limiter-state" class="small green">峰值保护已启用</span></div>
+          <p class="small muted setting-note">先均衡片段响度，再应用整体音量调节；静音片段不会被直接放大。</p>
+        </div>
+      </section>
+    </div>
+
+    <div class="panels-row bottom-row">
+      <section class="panel preview-panel" aria-labelledby="preview-title">
+        <div class="summary-bar"><h2 id="preview-title" class="cyan">试听与导出</h2><span class="small muted">对比效果后保存到设备</span></div>
+        <div class="panel-content preview-content">
+          <div class="player-controls"><button id="play-button" type="button" disabled>▶ 播放</button><button id="stop-button" type="button" disabled>■ 停止</button><div class="preview-modes" role="group" aria-label="试听音频版本"><button type="button" id="mode-original" aria-pressed="false">原始音频</button><button type="button" id="mode-processed" class="selected" aria-pressed="true">处理后音频</button></div><span class="player-time" id="play-time">00:00 / 00:00</span></div>
+          <input id="seek-range" type="range" min="0" max="1000" step="1" value="0" disabled aria-label="试听进度">
+          <div class="export-controls"><label>输出格式 <select id="export-format"><option value="mp3">MP3</option><option value="wav">WAV</option></select></label><label>音质 <select id="export-quality" aria-label="输出音质"><option value="128">128 kbps</option><option value="192" selected>192 kbps</option><option value="320">320 kbps</option></select></label><button id="export-button" type="button" class="primary push-right" disabled>↓ 处理并下载</button><button id="cancel-button" type="button" hidden>取消导出</button></div>
+          <div class="progress-area" id="progress-area" hidden><progress id="export-progress" max="100" value="0" aria-label="导出进度"></progress><span id="progress-text">准备导出…</span></div>
+          <div id="download-result" class="download-result" hidden><span class="green">✓ 文件已生成</span><a id="download-link" download>重新下载</a><span id="download-size" class="muted"></span></div>
+          <p class="small muted export-note" id="export-note">先选择音频，再试听或导出。导出文件直接保存到你的设备。</p>
+        </div>
+      </section>
+      <section class="panel log-panel" aria-labelledby="log-title">
+        <div class="summary-bar"><h2 id="log-title">处理日志</h2><span class="small muted">仅在当前页面内保留</span><button id="clear-log" type="button" class="small-button push-right">清空日志</button></div>
+        <div class="log-scroll"><table class="log-table"><thead><tr><th>时间</th><th>状态</th><th>事件</th></tr></thead><tbody id="log-body" aria-live="polite" aria-relevant="additions"></tbody></table></div>
+      </section>
+    </div>
+    <p class="privacy-note"><span class="green">✓ 本地隐私模式</span>　音频只在当前浏览器内存中处理，不上传、不联网、不持久保存；关闭页面后自动释放。</p>
+  </main>
+  <footer><span>在线音频音量增强器 · 音量调节 / 音量均衡</span><a href="https://github.com/EttijBaqaee/audio-volume-tool" target="_blank" rel="noopener noreferrer">源代码 · AGPL-3.0</a><span>纯静态 · 可离线使用 · 建议使用新版 Chrome / Edge / Firefox</span></footer>
+  <noscript>请启用 JavaScript。所有音频处理都在浏览器本地完成。</noscript>
+  <script>/*__DSP__*/</script>
+  <script type="text/plain" id="audio-worker-source">/*__WORKER__*/</script>
+  <script type="text/plain" id="audio-decoder-source">/*__DECODER__*/</script>
+  <script type="text/plain" id="audio-decoder-wasm">/*__WASM__*/</script>
+  <script>/*__I18N__*/</script>
+  <script>/*__APP__*/</script>
+</body>
+</html>

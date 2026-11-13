@@ -1,0 +1,6 @@
+* text=auto eol=lf
+*.png binary
+*.wasm binary
+index.html linguist-generated=true -diff
+source/vendor/** -text -whitespace linguist-vendored=true
+licenses/** -text -whitespace
