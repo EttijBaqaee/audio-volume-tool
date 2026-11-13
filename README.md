@@ -1,5 +1,7 @@
 # 在线音频音量增强器
 
+[简体中文](README.md) | [English](README.en.md)
+
 在浏览器本地降低、增强或均衡音频音量。无需安装、无需上传，断网也能使用。
 
 ## 页面预览
@@ -25,8 +27,6 @@
 - **导出**：MP3（128 / 192 / 320 kbps）、WAV（16-bit / 24-bit PCM）。
 - **中英文界面**：首次按浏览器首选语言匹配，手动选择后记住偏好。
 - **明暗主题**：默认跟随浏览器，偏好变化时自动更新，也可手动选择。
-
-English: A fully local audio volume tool with 50%–400% gain, automatic volume leveling, voice enhancement, clipping protection, waveform preview, and MP3/WAV export. Includes English/Chinese interfaces and automatic light/dark themes.
 
 ## 使用
 
